@@ -18,10 +18,12 @@ from app.config import get_settings
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Cache setup
+# Lazy-init state (initialized on first call, not at import time)
+# This prevents crashes during Vercel cold starts when env vars may not
+# be loaded yet at the module import stage.
 # ---------------------------------------------------------------------------
-_settings = get_settings()
-_cache = TTLCache(maxsize=50, ttl=_settings.CACHE_TTL_SECONDS)
+_cache: Optional[TTLCache] = None
+_counter: Optional["GeminiCallCounter"] = None
 
 
 class GeminiCallCounter:
@@ -43,7 +45,14 @@ class GeminiCallCounter:
         return sum(1 for t in self.calls if now - t < 60)
 
 
-_counter = GeminiCallCounter(_settings.MAX_GEMINI_CALLS_PER_MINUTE)
+def _get_lazy_state():
+    """Return (cache, counter), initializing them on first call."""
+    global _cache, _counter
+    if _cache is None or _counter is None:
+        settings = get_settings()
+        _cache = TTLCache(maxsize=50, ttl=settings.CACHE_TTL_SECONDS)
+        _counter = GeminiCallCounter(settings.MAX_GEMINI_CALLS_PER_MINUTE)
+    return _cache, _counter
 
 
 def _plan_hash(plan_text: str) -> str:
@@ -71,19 +80,22 @@ async def generate_plan_summary(plan_data: dict) -> Optional[str]:
     # Build prompt
     prompt = _build_summary_prompt(plan_data)
 
+    # Get lazy-initialized cache and counter
+    cache, counter = _get_lazy_state()
+
     # Check cache
     cache_key = _plan_hash(prompt)
-    if cache_key in _cache:
+    if cache_key in cache:
         logger.debug(f"Cache hit for Gemini summary: {cache_key}")
-        return _cache[cache_key]
+        return cache[cache_key]
 
     # Check call cap
-    if not _counter.can_call():
-        logger.warning(f"Gemini API call cap reached ({_counter.calls_in_last_minute()} calls/min)")
+    if not counter.can_call():
+        logger.warning(f"Gemini API call cap reached ({counter.calls_in_last_minute()} calls/min)")
         return None
 
     try:
-        _counter.record_call()
+        counter.record_call()
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
@@ -115,7 +127,7 @@ async def generate_plan_summary(plan_data: dict) -> Optional[str]:
             )
 
             if summary:
-                _cache[cache_key] = summary
+                cache[cache_key] = summary
                 return summary
             else:
                 logger.warning("Gemini returned empty response")
@@ -146,18 +158,21 @@ def generate_plan_summary_sync(plan_data: dict) -> Optional[str]:
     # Build prompt
     prompt = _build_summary_prompt(plan_data)
 
+    # Get lazy-initialized cache and counter
+    cache, counter = _get_lazy_state()
+
     # Check cache
     cache_key = _plan_hash(prompt)
-    if cache_key in _cache:
-        return _cache[cache_key]
+    if cache_key in cache:
+        return cache[cache_key]
 
     # Check call cap
-    if not _counter.can_call():
+    if not counter.can_call():
         logger.warning("Gemini API call cap reached")
         return None
 
     try:
-        _counter.record_call()
+        counter.record_call()
 
         with httpx.Client(timeout=30.0) as client:
             response = client.post(
@@ -188,7 +203,7 @@ def generate_plan_summary_sync(plan_data: dict) -> Optional[str]:
             )
 
             if summary:
-                _cache[cache_key] = summary
+                cache[cache_key] = summary
                 return summary
             return None
 

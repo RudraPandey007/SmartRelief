@@ -6,7 +6,7 @@ from typing import List
 
 class Settings(BaseSettings):
     # App security
-    APP_API_KEY: str = Field(..., description="Internal API key for authentication")
+    APP_API_KEY: str = Field(default="NOT_SET", description="Internal API key for authentication")
     ALLOWED_ORIGINS: str = Field(
         default="http://localhost:5173,http://localhost:3000",
         description="Comma-separated list of allowed CORS origins",
