@@ -1,3 +1,4 @@
+import os
 from pydantic_settings import BaseSettings
 from pydantic import Field
 from typing import List
@@ -29,7 +30,10 @@ class Settings(BaseSettings):
     WEATHER_API_BASE_URL: str = Field(default="", description="Weather API base URL")
 
     # Database
-    DATABASE_URL: str = "sqlite:///./relocation.db"
+    DATABASE_URL: str = Field(
+        default="sqlite:////tmp/relocation.db",
+        description="Database URL. On Vercel, use /tmp for ephemeral SQLite.",
+    )
 
     # Cache
     CACHE_TTL_SECONDS: int = 600
