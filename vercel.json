@@ -9,10 +9,7 @@
       "runtime": "python3.12",
       "memory": 512,
       "maxDuration": 30,
-      "includeFiles": [
-        "backend/app/**",
-        "requirements.txt"
-      ]
+      "includeFiles": "backend/app/**"
     }
   },
   "rewrites": [
