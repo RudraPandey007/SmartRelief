@@ -163,6 +163,10 @@ function Dashboard() {
     return simResult.changes_summary;
   }, [simResult]);
 
+  /* ---- modal state for expanded views ---- */
+  const [showFullRec, setShowFullRec] = useState(false);
+  const [showAllRejected, setShowAllRejected] = useState(false);
+
   return (
     <>
       {/* Global error banner */}
@@ -253,7 +257,7 @@ function Dashboard() {
                   </b>
                 </div>
               </div>
-              <button className="primary-btn">View Full Recommendation <ArrowUpRight size={16} /></button>
+              <button className="primary-btn" onClick={() => setShowFullRec(true)}>View Full Recommendation <ArrowUpRight size={16} /></button>
             </>
           ) : (
             <div className="rec-empty">No destinations available for this village.</div>
@@ -306,7 +310,7 @@ function Dashboard() {
         </section>
 
         <section className="card">
-          <div className="card-head"><div><h2>Rejected Destinations</h2><p>Hard constraint failures</p></div><button className="link-btn">View all</button></div>
+          <div className="card-head"><div><h2>Rejected Destinations</h2><p>Hard constraint failures</p></div><button className="link-btn" onClick={() => setShowAllRejected(true)}>View all</button></div>
           <div className="alerts">
             {(activePlan?.rejected_destinations || []).slice(0, 5).map((rd, i) => (
               <div key={rd.destination_id || i}>
@@ -459,6 +463,122 @@ function Dashboard() {
           </div>
         )}
       </section>
+
+      {/* ---- Full Recommendation Modal ---- */}
+      {showFullRec && topDest && (
+        <div className="modal-overlay" onClick={() => setShowFullRec(false)}>
+          <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <h2>Full Recommendation Detail</h2>
+              <button className="modal-close" onClick={() => setShowFullRec(false)}><X size={18} /></button>
+            </div>
+            <div className="modal-body">
+              <div className="rec-hero" style={{ marginBottom: 16 }}>
+                <div><span>Best Destination</span><h3>{topDest.destination_name}</h3></div>
+                <div className="score">
+                  <b>{Math.round(topDest.weighted_total * 100)}</b>
+                  <span>/100</span>
+                </div>
+              </div>
+
+              <h3 style={{ fontSize: 12, margin: '0 0 8px' }}>Destination Scores</h3>
+              <div className="dest-details">
+                <div><span>Safety Score</span><b>{scoreLabel(topDest.safety_score)}</b></div>
+                <div><span>Capacity Score</span><b>{scoreLabel(topDest.capacity_score)}</b></div>
+                <div><span>Route Safety</span><b>{scoreLabel(topDest.route_safety_score)}</b></div>
+                <div><span>Healthcare Access</span><b>{scoreLabel(topDest.healthcare_score)}</b></div>
+                <div><span>Water Availability</span><b>{scoreLabel(topDest.water_score)}</b></div>
+                <div><span>Vulnerability Fit</span><b>{scoreLabel(topDest.vulnerability_fit_score)}</b></div>
+                <div><span>Distance Score</span><b>{scoreLabel(topDest.distance_score)}</b></div>
+                <div><span>Weighted Total</span><b>{topDest.weighted_total?.toFixed(4)}</b></div>
+              </div>
+
+              <h3 style={{ fontSize: 12, margin: '16px 0 8px' }}>Capacity & Allocation</h3>
+              <div className="dest-details">
+                <div><span>Total Capacity</span><b>{fmt(topDest.total_capacity)}</b></div>
+                <div><span>Available Capacity</span><b>{fmt(topDest.available_capacity)}</b></div>
+                <div><span>Families Allocated</span><b>{fmt(topDest.families_allocated)}</b></div>
+              </div>
+              {topDest.allocation_breakdown && (
+                <div style={{ marginTop: 8 }}>
+                  <small style={{ fontSize: 9, color: '#60717e' }}>Allocation Breakdown:</small>
+                  <div className="dest-details" style={{ marginTop: 4 }}>
+                    <div><span>Elderly/Special Needs</span><b>{topDest.allocation_breakdown.priority_elderly_special_needs || 0}</b></div>
+                    <div><span>Children</span><b>{topDest.allocation_breakdown.priority_children || 0}</b></div>
+                    <div><span>General Population</span><b>{topDest.allocation_breakdown.general_population || 0}</b></div>
+                  </div>
+                </div>
+              )}
+
+              <h3 style={{ fontSize: 12, margin: '16px 0 8px' }}>Route Details</h3>
+              <div className="dest-details">
+                <div><span>Route Distance</span><b>{topDest.route_distance_km} km</b></div>
+                <div><span>Route Time</span><b>{topDest.route_time_min} min</b></div>
+                <div><span>Route Status</span><b>{topDest.route_status}</b></div>
+                <div><span>Flooded</span><b>{topDest.is_flooded ? 'Yes' : 'No'}</b></div>
+                <div><span>Landslide Affected</span><b>{topDest.is_landslide_affected ? 'Yes' : 'No'}</b></div>
+                <div><span>Rank</span><b>#{topDest.rank}</b></div>
+              </div>
+
+              {topDest.allocation_reasons && topDest.allocation_reasons.length > 0 && (
+                <>
+                  <h3 style={{ fontSize: 12, margin: '16px 0 8px' }}>Allocation Reasons</h3>
+                  <div className="rejected-list">
+                    {topDest.allocation_reasons.map((reason, i) => (
+                      <div key={i} style={{ background: '#f3fbf6', borderColor: '#d8efdf' }}>
+                        <CheckCircle2 style={{ color: '#20a86b' }} />
+                        <span style={{ fontSize: 9, color: '#1c6e45' }}>{reason}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ---- All Rejected Destinations Modal ---- */}
+      {showAllRejected && (
+        <div className="modal-overlay" onClick={() => setShowAllRejected(false)}>
+          <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <div>
+                <h2>All Rejected Destinations</h2>
+                <p style={{ fontSize: 9, color: '#71818f', margin: '4px 0 0' }}>
+                  {totalRejected} candidate(s) rejected by hard safety constraints
+                </p>
+              </div>
+              <button className="modal-close" onClick={() => setShowAllRejected(false)}><X size={18} /></button>
+            </div>
+            <div className="modal-body">
+              <div className="rejected-list">
+                {(activePlan?.rejected_destinations || []).map((rd, i) => (
+                  <div key={rd.destination_id || i}>
+                    <AlertTriangle />
+                    <div>
+                      <b>{rd.destination_name}</b>
+                      {rd.rejection_reasons && rd.rejection_reasons.length > 0 ? (
+                        rd.rejection_reasons.map((r, j) => (
+                          <span key={j} style={{ display: 'block', marginTop: j > 0 ? 4 : 0 }}>{r}</span>
+                        ))
+                      ) : (
+                        <span>Rejected by safety constraints</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {totalRejected === 0 && (
+                  <div style={{ background: '#e9f7ef', borderColor: '#d8efdf' }}>
+                    <CheckCircle2 style={{ color: '#20a86b' }} />
+                    <div><b>No rejections</b><span>All candidates passed filters</span></div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -1,4 +1,9 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "installCommand": "npm --prefix frontend ci",
+  "buildCommand": "npm --prefix frontend run build",
+  "outputDirectory": "frontend/dist",
   "functions": {
     "api/index.py": {
       "runtime": "python3.12",
@@ -12,8 +17,36 @@
   },
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/health",
       "destination": "/api/index.py"
+    },
+    {
+      "source": "/protected-example",
+      "destination": "/api/index.py"
+    },
+    {
+      "source": "/villages/:path*",
+      "destination": "/api/index.py"
+    },
+    {
+      "source": "/risk/:path*",
+      "destination": "/api/index.py"
+    },
+    {
+      "source": "/relocation/:path*",
+      "destination": "/api/index.py"
+    },
+    {
+      "source": "/simulation/:path*",
+      "destination": "/api/index.py"
+    },
+    {
+      "source": "/dashboard/:path*",
+      "destination": "/api/index.py"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }

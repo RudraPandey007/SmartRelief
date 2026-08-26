@@ -15,6 +15,10 @@ from app.config import Settings, get_settings
 # ---------------------------------------------------------------------------
 # Rate limiter (global singleton, wired into main.py later)
 # ---------------------------------------------------------------------------
+# NOTE: On Vercel serverless, in-memory rate limit counters and the
+# Gemini/weather TTL cache do NOT persist reliably across invocations —
+# each cold start may reset this state. Acceptable for a hackathon demo;
+# for production, use a shared store (Redis/Upstash) instead.
 limiter = Limiter(key_func=get_remote_address)
 
 

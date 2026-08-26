@@ -95,12 +95,18 @@ def build_selected_destination_explanations(
         reasons = _build_destination_reasons(dest)
         reasons.insert(0, f"📍 Allocated {families} families (weighted score: {dest.get('weighted_total', 0):.2f})")
 
+        # Append priority-group allocation reasons from the allocator
+        alloc_reasons = dest.get("allocation_reasons", [])
+        for ar in alloc_reasons:
+            reasons.append(f"🎯 {ar}")
+
         explanations.append({
             "destination_id": dest.get("id", ""),
             "destination_name": dest.get("name", ""),
             "destination_type": dest.get("type", "village"),
             "rank": dest.get("rank", 0),
             "families_allocated": families,
+            "allocation_breakdown": dest.get("allocation_breakdown"),
             "weighted_total": dest.get("weighted_total", 0),
             "reasons": reasons,
         })

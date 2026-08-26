@@ -96,6 +96,17 @@ class DestinationScore(BaseModel):
     available_capacity: int = 0
     families_allocated: int = 0
 
+    # Priority-group allocation breakdown (backward compatible —
+    # families_allocated remains the total across all groups)
+    allocation_breakdown: Optional[Dict[str, int]] = Field(
+        default=None,
+        description="Per-priority-group family counts: priority_elderly_special_needs, priority_children, general_population",
+    )
+    allocation_reasons: Optional[List[str]] = Field(
+        default=None,
+        description="Explainability reasons for how this destination was selected for its allocated priority groups",
+    )
+
     # Route details
     route_id: Optional[str] = None
     route_distance_km: float = 0.0

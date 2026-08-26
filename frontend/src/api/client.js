@@ -5,7 +5,8 @@
  * Throws structured errors on 401 / 429 / other non-2xx responses.
  */
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+// Empty on the single Vercel deployment: API routes share this site's origin.
+const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 const API_KEY = import.meta.env.VITE_API_KEY;
 
 /**

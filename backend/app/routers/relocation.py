@@ -156,14 +156,22 @@ async def generate_plan(
     ]
     ranked = rank_destinations(scored)
 
-    # --- Step 8: Population Allocation ---
+    # --- Step 8: Population Allocation (priority-group-aware) ---
     from app.services.allocation_engine import allocate_families, compute_affected_families
 
     affected_families = compute_affected_families(
         village.households,
         body.max_affected_families,
     )
-    allocated, unallocated = allocate_families(ranked, affected_families)
+    allocated, unallocated = allocate_families(
+        ranked,
+        affected_families,
+        source_population=village.population,
+        source_households=village.households,
+        source_elderly_above_65=village.elderly_above_65,
+        source_children_under_5=village.children_under_5,
+        source_special_assistance=village.special_assistance,
+    )
 
     # --- Step 9: Explainability Engine ---
     from app.services.explainability_engine import (
@@ -248,6 +256,8 @@ async def generate_plan(
                 total_capacity=d.get("total_capacity", 0),
                 available_capacity=d.get("available_capacity", 0),
                 families_allocated=d.get("families_allocated", 0),
+                allocation_breakdown=d.get("allocation_breakdown"),
+                allocation_reasons=d.get("allocation_reasons"),
                 route_id=d.get("route_id"),
                 route_distance_km=d.get("route_distance_km", 0),
                 route_time_min=d.get("route_time_min", 0),
