@@ -1,27 +1,19 @@
 {
-  "builds": [
-    {
-      "src": "api/index.py",
-      "use": "@vercel/python",
-      "config": {
-        "maxLambdaSize": "15mb",
-        "includeFiles": [
-          "backend/app/**",
-          "requirements.txt"
-        ]
-      }
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "api/index.py"
-    }
-  ],
   "functions": {
     "api/index.py": {
+      "runtime": "python3.12",
       "memory": 512,
-      "maxDuration": 30
+      "maxDuration": 30,
+      "includeFiles": [
+        "backend/app/**",
+        "requirements.txt"
+      ]
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api/index.py"
+    }
+  ]
 }
