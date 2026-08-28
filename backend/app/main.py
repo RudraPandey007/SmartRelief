@@ -1,11 +1,5 @@
 """
 FastAPI application entry point.
-
-Covers:
-  - CORS (explicit origins from .env)
-  - Rate limiting (slowapi, per-IP)
-  - API key authentication (global dependency)
-  - /health endpoint for smoke-testing
 """
 import logging
 from contextlib import asynccontextmanager
@@ -18,12 +12,8 @@ from app.config import get_settings, Settings
 from app.security import limiter, require_api_key, rate_limit_exceeded_handler
 from app.database import get_engine, load_all_seed_data
 
-# Import routers
 from app.routers import villages, risk, relocation, simulation, dashboard
 
-# ---------------------------------------------------------------------------
-# Lifespan (startup / shutdown hooks)
-# ---------------------------------------------------------------------------
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
@@ -31,7 +21,7 @@ async def lifespan(app: FastAPI):
     # Startup: verify critical config
     if settings.APP_API_KEY == "REPLACE_WITH_INTERNAL_APP_API_KEY":
         logging.warning(
-            "⚠️  APP_API_KEY is still the placeholder value. "
+            "APP_API_KEY is still the placeholder value. "
             "Set a real key in .env before production use."
         )
     
@@ -39,9 +29,9 @@ async def lifespan(app: FastAPI):
     engine = get_engine(settings.DATABASE_URL)
     summary = load_all_seed_data(engine)
     if any(v > 0 for v in summary.values()):
-        logging.info(f"🌱 Seed data loaded: {summary}")
+        logging.info(f"Seed data loaded: {summary}")
     else:
-        logging.info("📦 Database already populated, skipping seed load.")
+        logging.info("Database already populated, skipping seed load.")
     
     # Store engine on app state for routers to access
     app.state.db_engine = engine
@@ -50,20 +40,17 @@ async def lifespan(app: FastAPI):
     # Shutdown: nothing to clean up for MVP
 
 
-# ---------------------------------------------------------------------------
-# App instance
-# ---------------------------------------------------------------------------
 app = FastAPI(
     title="Relocation & Evacuation Decision Support System",
     version="0.1.0",
     lifespan=lifespan,
 )
 
-# --- Rate limiter (must be added before routes) ---
+# Rate limiter (must be added before routes)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
-# --- CORS (explicit origins from .env) ---
+# CORS
 settings_for_cors = get_settings()
 app.add_middleware(
     CORSMiddleware,
@@ -74,18 +61,12 @@ app.add_middleware(
 )
 
 
-# ---------------------------------------------------------------------------
-# Health endpoint (no API key required — used for uptime checks)
-# ---------------------------------------------------------------------------
 @app.get("/health", tags=["ops"])
 @limiter.limit("60/minute")
 async def health(request: Request):
     return {"status": "ok", "service": "relocation-dss"}
 
 
-# ---------------------------------------------------------------------------
-# Protected demo route — proves the API key gate works
-# ---------------------------------------------------------------------------
 @app.get(
     "/protected-example",
     tags=["ops"],
@@ -98,9 +79,6 @@ async def protected_example(request: Request):
     }
 
 
-# ---------------------------------------------------------------------------
-# Include routers
-# ---------------------------------------------------------------------------
 app.include_router(villages.router)
 app.include_router(risk.router)
 app.include_router(relocation.router)

@@ -1,16 +1,10 @@
-"""
-Pydantic v2 request/response schemas for the Relocation DSS API.
-
-Strict validation: lat/lng bounds, positive integers, radius caps, etc.
-"""
+"""Pydantic v2 request/response schemas for the Relocation DSS API."""
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 import datetime
 
 
-# ---------------------------------------------------------------------------
-# Common
-# ---------------------------------------------------------------------------
+
 class ErrorResponse(BaseModel):
     error: str
     message: str
@@ -48,9 +42,7 @@ class VillageListOut(BaseModel):
     villages: List[VillageOut]
 
 
-# ---------------------------------------------------------------------------
-# Generate Plan Request / Response
-# ---------------------------------------------------------------------------
+
 class OptimizationWeights(BaseModel):
     safety: float = Field(default=0.25, ge=0, le=1)
     capacity: float = Field(default=0.20, ge=0, le=1)
@@ -158,9 +150,7 @@ class GeneratePlanResponse(BaseModel):
     created_at: str = ""
 
 
-# ---------------------------------------------------------------------------
-# Simulation
-# ---------------------------------------------------------------------------
+
 class SimulationOverrides(BaseModel):
     rainfall_multiplier: float = Field(default=1.0, ge=0.1, le=10.0)
     occupancy_percent: float = Field(default=1.0, ge=0.0, le=1.0)
@@ -180,9 +170,7 @@ class SimulationResponse(BaseModel):
     changes_summary: Dict[str, Any]
 
 
-# ---------------------------------------------------------------------------
-# Dashboard
-# ---------------------------------------------------------------------------
+
 class DashboardOverview(BaseModel):
     total_villages: int
     villages_by_risk: Dict[str, int]  # extreme/high/medium/low: count

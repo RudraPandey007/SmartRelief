@@ -1,20 +1,8 @@
-"""
-Capacity Engine — calculate available capacity and capacity scores.
-
-Capacity is critical for multi-destination evacuation:
-  - Available capacity = total_capacity - current_occupancy
-  - Capacity score = normalized available capacity (0-1)
-"""
+"""Capacity scoring for destination candidates."""
 from typing import Optional
 
 
 def compute_available_capacity(total_capacity: int, current_occupancy: int) -> int:
-    """
-    Calculate available capacity.
-
-    Returns:
-        int: max(0, total - current)
-    """
     return max(0, total_capacity - current_occupancy)
 
 
@@ -23,20 +11,7 @@ def compute_capacity_score(
     current_occupancy: int,
     reference_capacity: int = 2000,
 ) -> float:
-    """
-    Compute capacity score 0-1.
-
-    Score is proportional to available capacity relative to reference.
-    A shelter with 2000 beds available scores 1.0.
-
-    Args:
-        total_capacity: maximum beds/places
-        current_occupancy: currently occupied
-        reference_capacity: normalization reference (default 2000)
-
-    Returns:
-        float 0-1
-    """
+    """Capacity score 0-1, proportional to available capacity vs reference (default 2000)."""
     available = compute_available_capacity(total_capacity, current_occupancy)
 
     if reference_capacity <= 0:
@@ -46,12 +21,7 @@ def compute_capacity_score(
 
 
 def compute_capacity_for_destination(candidate: dict) -> dict:
-    """
-    Add capacity fields to a candidate dict.
-
-    Returns:
-        dict with available_capacity and capacity_score added
-    """
+    """Add available_capacity and capacity_score to a candidate dict."""
     total = candidate.get("total_capacity", 0)
     current = candidate.get("current_occupancy", 0)
     available = compute_available_capacity(total, current)

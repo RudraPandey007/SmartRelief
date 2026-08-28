@@ -1,9 +1,4 @@
-"""
-Dashboard Router — aggregate overview for the frontend.
-
-Endpoints:
-  GET /dashboard/overview  — aggregate counts from seed data
-"""
+"""Dashboard router — aggregate overview for the frontend."""
 from fastapi import APIRouter, Depends, Request
 from slowapi import Limiter
 

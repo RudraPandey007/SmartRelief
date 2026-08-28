@@ -1,10 +1,4 @@
-"""
-Villages Router — basic CRUD-read for the frontend map.
-
-Endpoints:
-  GET /villages          — list all villages
-  GET /villages/{id}     — get a single village by ID
-"""
+"""Villages router — list and retrieve villages."""
 from typing import Optional
 from fastapi import APIRouter, Depends, Request, Query
 from slowapi import Limiter
@@ -36,7 +30,6 @@ async def list_villages(
     engine = _get_engine(settings)
     villages = get_all_villages(engine)
 
-    # Apply filters
     if state:
         villages = [v for v in villages if v.state.lower() == state.lower()]
 

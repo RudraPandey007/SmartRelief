@@ -1,9 +1,4 @@
-"""
-Risk Router — risk assessment endpoint.
-
-Endpoints:
-  POST /risk/assess  — compute hazard + vulnerability for a village
-"""
+"""Risk router — hazard + vulnerability assessment."""
 from fastapi import APIRouter, Depends, Request, HTTPException
 from pydantic import BaseModel, Field
 from slowapi import Limiter
@@ -55,7 +50,6 @@ async def assess_risk(
             detail={"error": "not_found", "message": f"Village {body.village_id} not found"},
         )
 
-    # Compute scores
     hazard = compute_hazard_for_village(village)
     vuln = compute_vulnerability_for_village(village)
 

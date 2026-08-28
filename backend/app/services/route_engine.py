@@ -1,9 +1,4 @@
-"""
-Route Safety Engine — compute route safety scores from seeded data.
-
-For MVP, routes have pre-computed safety scores in seed data.
-This engine looks up routes and computes composite route quality.
-"""
+"""Route safety engine — compute route quality scores."""
 from typing import Optional
 
 

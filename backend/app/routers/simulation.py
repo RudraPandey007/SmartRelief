@@ -1,9 +1,4 @@
-"""
-Simulation Router — what-if simulation endpoint.
-
-Endpoints:
-  POST /simulation/run  — re-runs pipeline with modified parameters
-"""
+"""Simulation router — what-if scenario reruns."""
 import datetime
 from fastapi import APIRouter, Depends, Request, HTTPException
 from slowapi import Limiter
@@ -53,13 +48,12 @@ async def run_simulation(
             detail={"error": "not_found", "message": f"Village {body.village_id} not found"},
         )
 
-    # --- Generate BEFORE plan (no overrides) ---
+    # BEFORE plan (no overrides)
     before = await _generate_plan_internal(engine, village, body, overrides_applied=False)
 
-    # --- Generate AFTER plan (with overrides) ---
+    # AFTER plan (with overrides)
     after = await _generate_plan_internal(engine, village, body, overrides_applied=True, overrides=body.overrides)
 
-    # --- Compute changes summary ---
     changes = {
         "rainfall_change": f"{body.overrides.rainfall_multiplier}x",
         "occupancy_change": f"{body.overrides.occupancy_percent * 100:.0f}%",
@@ -84,7 +78,7 @@ async def _generate_plan_internal(
     overrides=None,
 ):
     """Internal plan generation with optional overrides."""
-    # --- Step 1: Hazard Risk Engine ---
+    # Hazard scoring
     from app.services.hazard_engine import compute_hazard_for_village, compute_hazard_score
 
     hazard_result = compute_hazard_for_village(village)
@@ -108,7 +102,7 @@ async def _generate_plan_internal(
             "risk_classification": classify_risk(new_score),
         }
 
-    # --- Step 2: Vulnerability Engine ---
+    # Vulnerability scoring
     from app.services.vulnerability_engine import compute_vulnerability_for_village
     vuln_result = compute_vulnerability_for_village(village)
 
@@ -118,7 +112,7 @@ async def _generate_plan_internal(
         4,
     )
 
-    # --- Step 3: Candidate Destination Engine ---
+    # Find candidates
     from app.services.candidate_engine import find_all_candidates
 
     all_villages = get_all_villages_list(engine)
@@ -133,7 +127,7 @@ async def _generate_plan_internal(
         exclude_source_id=village.id,
     )
 
-    # --- Step 4: Hard Constraint Filtering ---
+    # Hard constraint filtering
     from app.services.filtering_engine import filter_candidates
 
     hazard_scores = {}
@@ -157,7 +151,7 @@ async def _generate_plan_internal(
 
     accepted, rejected_raw = filter_candidates(candidates, hazard_scores, route_statuses)
 
-    # --- Step 5: Capacity Engine ---
+    # Capacity scoring
     from app.services.capacity_engine import compute_capacity_for_destination
     accepted = [compute_capacity_for_destination(c) for c in accepted]
 
@@ -168,7 +162,7 @@ async def _generate_plan_internal(
             c["available_capacity"] = c["total_capacity"] - c["current_occupancy"]
             c["capacity_score"] = min(c["available_capacity"] / 2000, 1.0)
 
-    # --- Step 6: Route Safety Engine ---
+    # Route safety
     from app.services.route_engine import compute_route_for_destination, compute_route_score
 
     for i, c in enumerate(accepted):
@@ -191,7 +185,7 @@ async def _generate_plan_internal(
         else:
             accepted[i] = compute_route_for_destination(c, route)
 
-    # --- Step 7: Multi-Criteria Optimization ---
+    # Optimization & ranking
     from app.services.optimization_engine import score_destination, rank_destinations
 
     weights_dict = None
@@ -212,13 +206,13 @@ async def _generate_plan_internal(
     ]
     ranked = rank_destinations(scored)
 
-    # --- Step 8: Population Allocation ---
+    # Allocation
     from app.services.allocation_engine import allocate_families, compute_affected_families
 
     affected_families = compute_affected_families(village.households)
     allocated, unallocated = allocate_families(ranked, affected_families)
 
-    # --- Step 9: Explainability ---
+    # Explainability
     from app.services.explainability_engine import generate_rule_based_summary
 
     rule_summary = generate_rule_based_summary(
@@ -233,7 +227,7 @@ async def _generate_plan_internal(
         affected_families=affected_families,
     )
 
-    # --- Build response ---
+    # Build response
     weights_used = OptimizationWeights(**weights_dict) if weights_dict else OptimizationWeights()
 
     return GeneratePlanResponse(

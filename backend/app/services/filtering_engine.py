@@ -1,13 +1,8 @@
 """
-Filtering Engine — hard constraint rejection.
+Filtering engine — hard constraint rejection.
 
-Rejects candidates that violate non-negotiable constraints:
-  1. Hazard above threshold (too dangerous)
-  2. Route status = blocked (unreachable due to explicit blockage)
-  3. Zero available capacity (full)
-
-Missing route data (no record in seed_routes.json) is treated as a DATA GAP,
-not a blockage — it receives its own distinct rejection reason.
+Rejects candidates with hazard above threshold, blocked routes, or zero capacity.
+Missing route data (no record) is treated as a data gap, not a blockage.
 """
 from typing import List, Tuple
 
@@ -109,7 +104,7 @@ def filter_candidates(
         c_id = c["id"]
         reasons = []
 
-        # 1. Hazard constraint
+        # Hazard constraint
         h_score = hazard_scores.get(c_id, 0.0)
         classification = hazard_classifications.get(c_id, "unknown")
         is_rejected, reason = check_hazard_constraint(
@@ -118,13 +113,13 @@ def filter_candidates(
         if is_rejected:
             reasons.append(reason)
 
-        # 2. Route constraint — "blocked" and "no_data" both reject but with distinct messages
+        # Route constraint
         route_status = routes.get(c_id, "available")
         is_rejected, reason = check_route_constraint(route_status)
         if is_rejected:
             reasons.append(reason)
 
-        # 3. Capacity constraint
+        # Capacity constraint
         avail_cap = c.get("total_capacity", 0) - c.get("current_occupancy", 0)
         is_rejected, reason = check_capacity_constraint(avail_cap)
         if is_rejected:

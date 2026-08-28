@@ -1,11 +1,4 @@
-"""
-Weather Client — calls external weather API with caching and rate limiting.
-
-Features:
-  - TTL cache keyed by village_id + rounded coordinates (avoids repeated calls)
-  - Hard call cap per minute (protects shared API key)
-  - Graceful degradation: returns None if API fails or is capped
-"""
+"""Weather client — external weather API with caching and rate limiting."""
 import logging
 import time
 from typing import Optional
@@ -16,9 +9,6 @@ from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Cache setup
-# ---------------------------------------------------------------------------
 _settings = get_settings()
 _cache = TTLCache(maxsize=100, ttl=_settings.CACHE_TTL_SECONDS)
 
@@ -31,7 +21,6 @@ class WeatherCallCounter:
 
     def can_call(self) -> bool:
         now = time.time()
-        # Remove calls older than 60 seconds
         self.calls = [t for t in self.calls if now - t < 60]
         return len(self.calls) < self.max_per_minute
 
@@ -56,25 +45,18 @@ async def fetch_weather(
     latitude: float,
     longitude: float,
 ) -> Optional[dict]:
-    """
-    Fetch current weather data for a location.
-
-    Returns dict with rainfall_mm or None if unavailable.
-    """
+    """Fetch current weather for a location. Returns dict with rainfall_mm or None."""
     settings = get_settings()
 
-    # Skip if no API configured
     if not settings.WEATHER_API_KEY or settings.WEATHER_API_KEY.startswith("REPLACE"):
         logger.info("Weather API not configured, using seed data")
         return None
 
-    # Check cache first
     key = _cache_key(village_id, latitude, longitude)
     if key in _cache:
         logger.debug(f"Cache hit for weather: {key}")
         return _cache[key]
 
-    # Check call cap
     if not _counter.can_call():
         logger.warning(f"Weather API call cap reached ({_counter.calls_in_last_minute()} calls/min)")
         return None
@@ -128,16 +110,13 @@ def get_weather_sync(
     """
     settings = get_settings()
 
-    # Skip if no API configured
     if not settings.WEATHER_API_KEY or settings.WEATHER_API_KEY.startswith("REPLACE"):
         return None
 
-    # Check cache first
     key = _cache_key(village_id, latitude, longitude)
     if key in _cache:
         return _cache[key]
 
-    # Check call cap
     if not _counter.can_call():
         logger.warning("Weather API call cap reached")
         return None

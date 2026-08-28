@@ -1,12 +1,12 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import {
   LayoutDashboard, ShieldAlert, Users, MapPinned, Navigation,
-  House, Bell, FileText, Settings, Search, ChevronDown, Menu, X,
+  House, Bell, FileText, Settings, ChevronDown, Menu, X,
   AlertTriangle, UserRound, Warehouse, ArrowUpRight, Hospital,
   Droplets, Route, SlidersHorizontal,
   CheckCircle2, RefreshCw, CloudRain, Activity, Clock3, Loader2,
-  CircleAlert,
+  CircleAlert, Sun, Moon,
 } from "lucide-react";
 import "lucide-react";
 import "leaflet/dist/leaflet.css";
@@ -46,6 +46,91 @@ const NAV = [
 ];
 
 /* ------------------------------------------------------------------ */
+/*  Dark Theme Hook                                                    */
+/* ------------------------------------------------------------------ */
+
+function useDarkTheme() {
+  const [dark, setDark] = useState(() => {
+    const stored = localStorage.getItem("theme-dark");
+    if (stored !== null) return stored === "true";
+    return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
+  });
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (dark) {
+      root.setAttribute("data-theme", "dark");
+    } else {
+      root.removeAttribute("data-theme");
+    }
+    localStorage.setItem("theme-dark", String(dark));
+  }, [dark]);
+
+  return [dark, setDark];
+}
+
+/* ------------------------------------------------------------------ */
+/*  Notification Bell Hook                                             */
+/* ------------------------------------------------------------------ */
+
+function useNotifications(plan) {
+  const [readIds, setReadIds] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("notif-read") || "[]"); } catch { return []; }
+  });
+
+  const notifications = useMemo(() => {
+    if (!plan) return [];
+    const list = [];
+
+    // Villages at critical or high risk
+    (plan.ranked_destinations || []).forEach((d) => {
+      if (d.risk_classification === "critical" || d.risk_classification === "high") {
+        list.push({
+          id: `risk-${d.destination_id}`,
+          text: `\u26A0\uFE0F ${d.destination_name} has crossed into ${d.risk_classification} risk`,
+        });
+      }
+    });
+
+    // Rejected destinations due to blocked/unavailable routes
+    (plan.rejected_destinations || []).forEach((rd) => {
+      const reasons = rd.rejection_reasons || [];
+      const hasRouteIssue = reasons.some(
+        (r) => /blocked|unavailable|route/i.test(r)
+      );
+      if (hasRouteIssue) {
+        list.push({
+          id: `route-${rd.destination_id}`,
+          text: `\uD83D\uDEA7 Route to ${rd.destination_name} is currently blocked`,
+        });
+      }
+    });
+
+    // Most recent plan generation
+    if (plan.total_families_allocated > 0) {
+      list.push({
+        id: `plan-${plan.village_name}`,
+        text: `\u2705 Relocation plan generated for ${plan.village_name} \u2014 ${plan.total_families_allocated} families allocated`,
+      });
+    }
+
+    return list;
+  }, [plan]);
+
+  const markRead = useCallback((id) => {
+    setReadIds((prev) => {
+      const next = [...prev, id];
+      localStorage.setItem("notif-read", JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const unreadCount = notifications.filter((n) => !readIds.includes(n.id)).length;
+
+  return { notifications, readIds, markRead, unreadCount };
+}
+
+/* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
@@ -76,7 +161,7 @@ function riskTone(cls) {
 
 /** Format number with commas. */
 function fmt(n) {
-  if (n == null) return "—";
+  if (n == null) return "\u2014";
   return n.toLocaleString();
 }
 
@@ -130,6 +215,62 @@ function Spinner({ size = 20, label }) {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Notification Dropdown                                              */
+/* ------------------------------------------------------------------ */
+
+function NotificationDropdown({ notifications, readIds, markRead, unreadCount }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  // Close on outside click
+  useEffect(() => {
+    function handleClick(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    if (open) document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  return (
+    <div className="notif-wrap" ref={ref}>
+      <button
+        className={`icon-btn bell${unreadCount > 0 ? " has-unread" : ""}`}
+        onClick={() => setOpen((o) => !o)}
+        aria-label="Notifications"
+      >
+        <Bell size={18} />
+        {unreadCount > 0 && <i>{unreadCount}</i>}
+      </button>
+      {open && (
+        <div className="notif-dropdown">
+          <div className="notif-header">
+            <strong>Notifications</strong>
+            {unreadCount > 0 && <small>{unreadCount} unread</small>}
+          </div>
+          <div className="notif-list">
+            {notifications.length === 0 && (
+              <div className="notif-empty">
+                <CheckCircle2 size={18} />
+                <span>No alerts right now</span>
+              </div>
+            )}
+            {notifications.map((n) => (
+              <div
+                key={n.id}
+                className={`notif-item${readIds.includes(n.id) ? " read" : ""}`}
+                onClick={() => markRead(n.id)}
+              >
+                <span>{n.text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Dashboard                                                          */
 /* ------------------------------------------------------------------ */
 
@@ -177,37 +318,37 @@ function Dashboard() {
         <Metric
           icon={ShieldAlert}
           label="High Risk Villages"
-          value={ovLoading ? "…" : fmt(
+          value={ovLoading ? "\u2026" : fmt(
             (overview?.villages_by_risk?.extreme || 0) + (overview?.villages_by_risk?.high || 0)
           )}
           note={overview
-            ? `${overview.villages_by_risk?.extreme || 0} extreme · ${overview.villages_by_risk?.high || 0} high`
-            : "Loading…"}
+            ? `${overview.villages_by_risk?.extreme || 0} extreme \u00B7 ${overview.villages_by_risk?.high || 0} high`
+            : "Loading\u2026"}
           tone="red"
         />
         <Metric
           icon={Users}
           label="Affected Families"
-          value={planLoading ? "…" : fmt(activePlan?.affected_families)}
+          value={planLoading ? "\u2026" : fmt(activePlan?.affected_families)}
           note={activePlan
-            ? `${fmt(activePlan.population)} total population · ${activePlan.state}`
-            : "Loading…"}
+            ? `${fmt(activePlan.population)} total population \u00B7 ${activePlan.state}`
+            : "Loading\u2026"}
           tone="orange"
         />
         <Metric
           icon={UserRound}
           label="Total Population"
-          value={ovLoading ? "…" : fmt(overview?.total_population)}
-          note={overview ? `Across ${overview.total_villages} villages` : "Loading…"}
+          value={ovLoading ? "\u2026" : fmt(overview?.total_population)}
+          note={overview ? `Across ${overview.total_villages} villages` : "Loading\u2026"}
           tone="purple"
         />
         <Metric
           icon={Warehouse}
           label="Available Shelters"
-          value={ovLoading ? "…" : fmt(overview?.available_shelter_capacity)}
+          value={ovLoading ? "\u2026" : fmt(overview?.available_shelter_capacity)}
           note={overview
-            ? `${overview.total_shelters} shelters · ${fmt(overview.total_shelter_capacity)} total beds`
-            : "Loading…"}
+            ? `${overview.total_shelters} shelters \u00B7 ${fmt(overview.total_shelter_capacity)} total beds`
+            : "Loading\u2026"}
           tone="green"
         />
       </div>
@@ -220,7 +361,7 @@ function Dashboard() {
               <h2>Risk Map Overview</h2>
               <p>
                 {activePlan
-                  ? `Source: ${activePlan.village_name}, ${activePlan.district} — ${activePlan.ranked_destinations?.length || 0} destinations evaluated`
+                  ? `Source: ${activePlan.village_name}, ${activePlan.district} \u2014 ${activePlan.ranked_destinations?.length || 0} destinations evaluated`
                   : "Live hazard zones, affected settlements and relocation route"}
               </p>
             </div>
@@ -236,7 +377,7 @@ function Dashboard() {
           </div>
 
           {planLoading ? (
-            <div className="rec-loading"><Spinner size={28} label="Generating plan…" /></div>
+            <div className="rec-loading"><Spinner size={28} label="Generating plan\u2026" /></div>
           ) : topDest ? (
             <>
               <div className="rec-hero">
@@ -272,21 +413,21 @@ function Dashboard() {
           <div className="hazard-list">
             <div><CloudRain /><span>Flood Risk</span>
               <b className={activePlan?.hazard_score >= 0.7 ? "text-red" : activePlan?.hazard_score >= 0.4 ? "text-orange" : ""}>
-                {activePlan ? scoreLabel(activePlan.hazard_score) : "…"}
+                {activePlan ? scoreLabel(activePlan.hazard_score) : "\u2026"}
               </b>
             </div>
             <div><ShieldAlert /><span>Combined Risk</span>
               <b className={activePlan?.combined_risk >= 0.55 ? "text-red" : activePlan?.combined_risk >= 0.35 ? "text-orange" : ""}>
-                {activePlan ? riskDisplay(activePlan.combined_risk) : "…"}
+                {activePlan ? riskDisplay(activePlan.combined_risk) : "\u2026"}
               </b>
             </div>
             <div><Activity /><span>Risk Classification</span>
               <b className={`text-${riskTone(activePlan?.risk_classification)}`}>
-                {activePlan ? activePlan.risk_classification?.toUpperCase() : "…"}
+                {activePlan ? activePlan.risk_classification?.toUpperCase() : "\u2026"}
               </b>
             </div>
             <div><AlertTriangle /><span>Vulnerability Score</span>
-              <b>{activePlan ? `${Math.round(activePlan.vulnerability_score * 100)}%` : "…"}</b>
+              <b>{activePlan ? `${Math.round(activePlan.vulnerability_score * 100)}%` : "\u2026"}</b>
             </div>
           </div>
         </section>
@@ -296,15 +437,15 @@ function Dashboard() {
           <div className="donut-row">
             <div className="donut">
               <div>
-                <b>{activePlan ? fmt(activePlan.affected_families) : "…"}</b>
+                <b>{activePlan ? fmt(activePlan.affected_families) : "\u2026"}</b>
                 <span>Families</span>
               </div>
             </div>
             <div className="breakdown">
-              <span><i className="dot children" />Households <b>{activePlan ? fmt(activePlan.households) : "…"}</b></span>
-              <span><i className="dot adults" />Total Population <b>{activePlan ? fmt(activePlan.population) : "…"}</b></span>
-              <span><i className="dot elderly" />Families Allocated <b>{activePlan ? fmt(activePlan.total_families_allocated) : "…"}</b></span>
-              <span><i className="dot others" />Unallocated <b>{activePlan ? fmt(activePlan.unallocated_families) : "…"}</b></span>
+              <span><i className="dot children" />Households <b>{activePlan ? fmt(activePlan.households) : "\u2026"}</b></span>
+              <span><i className="dot adults" />Total Population <b>{activePlan ? fmt(activePlan.population) : "\u2026"}</b></span>
+              <span><i className="dot elderly" />Families Allocated <b>{activePlan ? fmt(activePlan.total_families_allocated) : "\u2026"}</b></span>
+              <span><i className="dot others" />Unallocated <b>{activePlan ? fmt(activePlan.unallocated_families) : "\u2026"}</b></span>
             </div>
           </div>
         </section>
@@ -339,7 +480,7 @@ function Dashboard() {
         </div>
 
         {planLoading ? (
-          <div className="rec-loading"><Spinner size={28} label="Building allocation…" /></div>
+          <div className="rec-loading"><Spinner size={28} label="Building allocation\u2026" /></div>
         ) : activePlan ? (
           <>
             <div className="allocation">
@@ -353,9 +494,9 @@ function Dashboard() {
                 </div>
               </div>
 
-              <div className="arrow">→</div>
+              <div className="arrow">\u2192</div>
 
-              {/* Dynamic allocation boxes — one per destination that got families */}
+              {/* Dynamic allocation boxes */}
               {allocatedDests.map((d, i) => (
                 <React.Fragment key={d.destination_id}>
                   {i > 0 && <div className="plus">+</div>}
@@ -370,7 +511,6 @@ function Dashboard() {
                 </React.Fragment>
               ))}
 
-              {/* If no allocations happened, show a note */}
               {allocatedDests.length === 0 && (
                 <div className="allocation-box">
                   <CircleAlert />
@@ -394,7 +534,7 @@ function Dashboard() {
             <div className="plan-bottom">
               <span>
                 <CheckCircle2 size={15} />
-                {totalEvaluated} candidates evaluated · {totalRejected} rejected by hard safety constraints
+                {totalEvaluated} candidates evaluated \u00B7 {totalRejected} rejected by hard safety constraints
               </span>
               <button className="link-btn">View Detailed Plan <ArrowUpRight size={14} /></button>
             </div>
@@ -417,7 +557,7 @@ function Dashboard() {
         </div>
         <div className="sliders">
           <label>
-            Rainfall Multiplier <b>{(0.1 + (sliders.rainfall_mm / 100) * 9.9).toFixed(1)}×</b>
+            Rainfall Multiplier <b>{(0.1 + (sliders.rainfall_mm / 100) * 9.9).toFixed(1)}\u00D7</b>
             <input
               type="range"
               min="1" max="100" step="1"
@@ -450,7 +590,7 @@ function Dashboard() {
           disabled={simLoading}
         >
           {simLoading ? (
-            <><Loader2 size={16} className="spin" /> Running…</>
+            <><Loader2 size={16} className="spin" /> Running\u2026</>
           ) : simulated ? (
             <><RefreshCw size={16} /> Reset Scenario</>
           ) : (
@@ -501,7 +641,7 @@ function Dashboard() {
               </div>
               {topDest.allocation_breakdown && (
                 <div style={{ marginTop: 8 }}>
-                  <small style={{ fontSize: 9, color: '#60717e' }}>Allocation Breakdown:</small>
+                  <small style={{ fontSize: 9, color: 'var(--muted)' }}>Allocation Breakdown:</small>
                   <div className="dest-details" style={{ marginTop: 4 }}>
                     <div><span>Elderly/Special Needs</span><b>{topDest.allocation_breakdown.priority_elderly_special_needs || 0}</b></div>
                     <div><span>Children</span><b>{topDest.allocation_breakdown.priority_children || 0}</b></div>
@@ -525,9 +665,9 @@ function Dashboard() {
                   <h3 style={{ fontSize: 12, margin: '16px 0 8px' }}>Allocation Reasons</h3>
                   <div className="rejected-list">
                     {topDest.allocation_reasons.map((reason, i) => (
-                      <div key={i} style={{ background: '#f3fbf6', borderColor: '#d8efdf' }}>
-                        <CheckCircle2 style={{ color: '#20a86b' }} />
-                        <span style={{ fontSize: 9, color: '#1c6e45' }}>{reason}</span>
+                      <div key={i} style={{ background: 'var(--safe-bg)', borderColor: 'var(--safe-border)' }}>
+                        <CheckCircle2 style={{ color: 'var(--green)' }} />
+                        <span style={{ fontSize: 9, color: 'var(--safe-text)' }}>{reason}</span>
                       </div>
                     ))}
                   </div>
@@ -545,7 +685,7 @@ function Dashboard() {
             <div className="modal-head">
               <div>
                 <h2>All Rejected Destinations</h2>
-                <p style={{ fontSize: 9, color: '#71818f', margin: '4px 0 0' }}>
+                <p style={{ fontSize: 9, color: 'var(--muted)', margin: '4px 0 0' }}>
                   {totalRejected} candidate(s) rejected by hard safety constraints
                 </p>
               </div>
@@ -569,8 +709,8 @@ function Dashboard() {
                   </div>
                 ))}
                 {totalRejected === 0 && (
-                  <div style={{ background: '#e9f7ef', borderColor: '#d8efdf' }}>
-                    <CheckCircle2 style={{ color: '#20a86b' }} />
+                  <div style={{ background: 'var(--safe-bg)', borderColor: 'var(--safe-border)' }}>
+                    <CheckCircle2 style={{ color: 'var(--green)' }} />
                     <div><b>No rejections</b><span>All candidates passed filters</span></div>
                   </div>
                 )}
@@ -607,6 +747,11 @@ const PAGES = {
 function App() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [active, setActive] = useState("Dashboard");
+  const [dark, setDark] = useDarkTheme();
+
+  /* Notifications — pass plan from top-level so bell has data on every page */
+  const { plan } = useRelocationPlan("V001");
+  const { notifications, readIds, markRead, unreadCount } = useNotifications(plan);
 
   return (
     <div className="app">
@@ -625,7 +770,7 @@ function App() {
             </button>
           ))}
         </nav>
-        <div className="sidebar-foot">Smart Relief v1.0 • SIH Prototype</div>
+        <div className="sidebar-foot">Smart Relief v1.0 \u2022 SIH Prototype</div>
       </aside>
 
       <main className="main">
@@ -636,13 +781,20 @@ function App() {
             <p>Real-time overview of hazards, affected areas and relocation recommendations</p>
           </div>
           <div className="top-actions">
-            <button className="icon-btn"><Search size={18} /></button>
-            <button className="icon-btn bell"><Bell size={18} /><i>3</i></button>
-            <div className="profile">
-              <div className="avatar">A</div>
-              <div><b>Admin User</b><small>District Authority</small></div>
-              <ChevronDown size={15} />
-            </div>
+            <NotificationDropdown
+              notifications={notifications}
+              readIds={readIds}
+              markRead={markRead}
+              unreadCount={unreadCount}
+            />
+            <button
+              className="icon-btn theme-toggle"
+              onClick={() => setDark((d) => !d)}
+              aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
+              title={dark ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {dark ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
           </div>
         </header>
 

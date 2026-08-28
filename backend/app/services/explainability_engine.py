@@ -1,12 +1,4 @@
-"""
-Explainability Engine — build structured reason lists and plan summaries.
-
-For each destination (selected and rejected), generates human-readable
-reasons explaining why it was accepted/rejected and how it scored.
-
-This is the ONLY place Gemini is used — and only optionally for a
-human-readable paragraph summary.
-"""
+"""Explainability engine — structured reason lists and plan summaries."""
 from typing import List, Dict, Any, Optional
 
 

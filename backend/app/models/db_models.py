@@ -1,21 +1,11 @@
-"""
-SQLModel table definitions for the Relocation DSS.
-
-Tables:
-  - Village: population data, hazard indicators, infrastructure flags
-  - Shelter: destination facilities with capacity tracking
-  - Route: road segments between villages with safety/status
-  - RelocationPlan: generated evacuation plans with allocations
-"""
+"""SQLModel table definitions for the Relocation DSS."""
 from typing import Optional
 from sqlmodel import SQLModel, Field, Column
 import datetime
 import json
 
 
-# ---------------------------------------------------------------------------
-# Village
-# ---------------------------------------------------------------------------
+
 class Village(SQLModel, table=True):
     __tablename__ = "villages"
 
@@ -51,9 +41,7 @@ class Village(SQLModel, table=True):
     notes: str = ""
 
 
-# ---------------------------------------------------------------------------
-# Shelter
-# ---------------------------------------------------------------------------
+
 class Shelter(SQLModel, table=True):
     __tablename__ = "shelters"
 
@@ -80,9 +68,7 @@ class Shelter(SQLModel, table=True):
         return json.loads(self.facilities) if self.facilities else []
 
 
-# ---------------------------------------------------------------------------
-# Route
-# ---------------------------------------------------------------------------
+
 class Route(SQLModel, table=True):
     __tablename__ = "routes"
 
@@ -104,9 +90,7 @@ class Route(SQLModel, table=True):
     notes: str = ""
 
 
-# ---------------------------------------------------------------------------
-# Relocation Plan (generated output, stored for history)
-# ---------------------------------------------------------------------------
+# Relocation Plan (stored for history)
 class RelocationPlan(SQLModel, table=True):
     __tablename__ = "relocation_plans"
 

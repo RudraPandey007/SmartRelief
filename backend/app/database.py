@@ -1,8 +1,4 @@
-"""
-Database module: SQLite connection via SQLModel.
-
-On startup, loads seed JSON data into tables if they're empty.
-"""
+"""SQLite connection via SQLModel. Loads seed JSON on startup if tables are empty."""
 import json
 import os
 from typing import Optional
@@ -11,7 +7,6 @@ from sqlmodel import SQLModel, Session, select, create_engine
 
 from app.models.db_models import Village, Shelter, Route
 
-# Data directory (relative to this file)
 DATA_DIR = Path(__file__).parent / "data"
 
 
@@ -29,10 +24,6 @@ def get_session(engine):
     """Return a new Session."""
     return Session(engine)
 
-
-# ---------------------------------------------------------------------------
-# Seed data loading
-# ---------------------------------------------------------------------------
 
 def _load_json(filename: str) -> list:
     """Load a JSON file from the data directory."""
@@ -103,10 +94,6 @@ def load_all_seed_data(engine) -> dict:
 
     return summary
 
-
-# ---------------------------------------------------------------------------
-# Query helpers (used by routers/services)
-# ---------------------------------------------------------------------------
 
 def get_all_villages(engine) -> list:
     """Return all villages."""

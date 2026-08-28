@@ -29,9 +29,7 @@ from typing import List, Tuple, Dict, Optional, Any
 import math
 
 
-# ---------------------------------------------------------------------------
-# Population breakdown helpers
-# ---------------------------------------------------------------------------
+
 
 def compute_priority_group_families(
     population: int,
@@ -87,9 +85,7 @@ def compute_priority_group_families(
     }
 
 
-# ---------------------------------------------------------------------------
-# Core allocation
-# ---------------------------------------------------------------------------
+
 
 def allocate_families(
     ranked_destinations: List[dict],
@@ -120,7 +116,7 @@ def allocate_families(
         and 'allocation_reasons' added.
     """
 
-    # --- Build priority group estimates ---
+
     groups = compute_priority_group_families(
         population=source_population or affected_families,  # fallback: treat 1 family = 1 person
         households=affected_families,
@@ -133,7 +129,7 @@ def allocate_families(
     children_count = groups["priority_children"]
     general_count = groups["general_population"]
 
-    # --- Prepare mutable capacity tracking ---
+    # Mutable capacity tracking
     # We keep a copy of available_capacity per destination so we can deduct
     # during successive priority passes without mutating the originals until
     # the end.
@@ -161,7 +157,7 @@ def allocate_families(
         ]
         # We'll sort in-line for each pass
 
-    # ---- Priority Group 1: elderly + special assistance → best healthcare ----
+    # Priority Group 1: elderly + special assistance → best healthcare
     _allocate_priority_group(
         dests=ranked_destinations,
         dest_caps=dest_caps,
@@ -177,7 +173,7 @@ def allocate_families(
         ),
     )
 
-    # ---- Priority Group 2: children → best remaining healthcare + capacity ----
+    # Priority Group 2: children → best healthcare + capacity
     # NOTE: We use remaining capacity (dest_caps) rather than the pre-computed
     # capacity_score so that destinations whose capacity was consumed by Group 1
     # are appropriately deprioritised for children allocation.
@@ -196,7 +192,7 @@ def allocate_families(
         ),
     )
 
-    # ---- Priority Group 3: general population → standard bin-packing by rank ----
+    # Priority Group 3: general population → by rank
     _allocate_priority_group(
         dests=ranked_destinations,
         dest_caps=dest_caps,
@@ -212,7 +208,7 @@ def allocate_families(
         ),
     )
 
-    # ---- Assemble results ----
+    # Assemble results
     remaining = affected_families
     for d in ranked_destinations:
         did = d["id"]
@@ -230,9 +226,7 @@ def allocate_families(
     return ranked_destinations, max(0, remaining)
 
 
-# ---------------------------------------------------------------------------
-# Internal helper
-# ---------------------------------------------------------------------------
+
 
 def _allocate_priority_group(
     dests: List[dict],
@@ -302,9 +296,7 @@ def _allocate_priority_group(
     # preserve the priority-group semantics.
 
 
-# ---------------------------------------------------------------------------
-# Affected families computation (unchanged from original)
-# ---------------------------------------------------------------------------
+
 
 def compute_affected_families(
     households: int,
@@ -321,9 +313,7 @@ def compute_affected_families(
     return households
 
 
-# ---------------------------------------------------------------------------
-# Summary
-# ---------------------------------------------------------------------------
+
 
 def get_allocation_summary(allocated_destinations: List[dict]) -> dict:
     """

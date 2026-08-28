@@ -1,9 +1,4 @@
-"""
-Relocation Router — the main "generate plan" endpoint.
-
-Endpoints:
-  POST /relocation/generate-plan  — full pipeline execution
-"""
+"""Relocation router — generate evacuation plans."""
 import datetime
 from fastapi import APIRouter, Depends, Request, HTTPException
 from slowapi import Limiter
@@ -33,24 +28,11 @@ async def generate_plan(
     request: Request,
     body: GeneratePlanRequest,
 ):
-    """
-    Generate an evacuation plan for a village.
-
-    Runs the full pipeline:
-      1. Hazard Risk Engine
-      2. Vulnerability Engine
-      3. Candidate Destination Engine
-      4. Hard Constraint Filtering
-      5. Capacity Engine
-      6. Route Safety Engine
-      7. Multi-Criteria Optimization
-      8. Population Allocation
-      9. Explainability Engine
-    """
+    """Run the full evacuation pipeline for a village."""
     settings = get_settings()
     engine = get_engine(settings.DATABASE_URL)
 
-    # --- Step 0: Validate source village ---
+    # Validate source village
     village = get_village_by_id(engine, body.village_id)
     if not village:
         raise HTTPException(
@@ -58,11 +40,11 @@ async def generate_plan(
             detail={"error": "not_found", "message": f"Village {body.village_id} not found"},
         )
 
-    # --- Step 1: Hazard Risk Engine ---
+    # Hazard scoring
     from app.services.hazard_engine import compute_hazard_for_village
     hazard_result = compute_hazard_for_village(village)
 
-    # --- Step 2: Vulnerability Engine ---
+    # Vulnerability scoring
     from app.services.vulnerability_engine import compute_vulnerability_for_village
     vuln_result = compute_vulnerability_for_village(village)
 
@@ -72,7 +54,7 @@ async def generate_plan(
         4,
     )
 
-    # --- Step 3: Candidate Destination Engine ---
+    # Find candidates
     from app.services.candidate_engine import find_all_candidates
 
     all_villages = _get_all_villages(engine)
@@ -87,7 +69,7 @@ async def generate_plan(
         exclude_source_id=village.id,
     )
 
-    # --- Step 4: Hard Constraint Filtering ---
+    # Hard constraint filtering
     from app.services.filtering_engine import filter_candidates
 
     # Compute hazard scores for each candidate
@@ -125,17 +107,17 @@ async def generate_plan(
         hazard_threshold=0.75,
     )
 
-    # --- Step 5: Capacity Engine ---
+    # Capacity scoring
     from app.services.capacity_engine import compute_capacity_for_destination
     accepted = [compute_capacity_for_destination(c) for c in accepted]
 
-    # --- Step 6: Route Safety Engine ---
+    # Route safety
     from app.services.route_engine import compute_route_for_destination
     for i, c in enumerate(accepted):
         route = get_route_between(engine, village.id, c["id"])
         accepted[i] = compute_route_for_destination(c, route)
 
-    # --- Step 7: Multi-Criteria Optimization ---
+    # Optimization & ranking
     from app.services.optimization_engine import score_destination, rank_destinations
 
     weights_dict = None
@@ -156,7 +138,7 @@ async def generate_plan(
     ]
     ranked = rank_destinations(scored)
 
-    # --- Step 8: Population Allocation (priority-group-aware) ---
+    # Allocation
     from app.services.allocation_engine import allocate_families, compute_affected_families
 
     affected_families = compute_affected_families(
@@ -173,7 +155,7 @@ async def generate_plan(
         source_special_assistance=village.special_assistance,
     )
 
-    # --- Step 9: Explainability Engine ---
+    # Explainability
     from app.services.explainability_engine import (
         build_selected_destination_explanations,
         build_rejected_destination_explanations,
@@ -217,7 +199,7 @@ async def generate_plan(
         affected_families=affected_families,
     )
 
-    # --- Build response ---
+    # Build response
     weights_used = OptimizationWeights(**weights_dict) if weights_dict else OptimizationWeights()
 
     return GeneratePlanResponse(

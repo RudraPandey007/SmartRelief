@@ -1,17 +1,10 @@
-"""
-Candidate Engine — find nearby destination villages and shelters using haversine.
-
-Searches within a configurable radius from the source village.
-Returns candidates with distance calculated.
-"""
+"""Candidate engine — find nearby villages and shelters using haversine."""
 from typing import List, Tuple
 from math import radians, sin, cos, sqrt, atan2
 
 
 def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """
-    Calculate haversine distance between two points in kilometers.
-    """
+    """Great-circle distance in km between two lat/lon points."""
     R = 6371.0  # Earth's radius in km
 
     lat1_r, lon1_r = radians(lat1), radians(lon1)
@@ -33,23 +26,10 @@ def find_nearby_villages(
     radius_km: float = 120.0,
     exclude_source_id: str = None,
 ) -> List[Tuple[dict, float]]:
-    """
-    Find villages within radius_km of source coordinates.
-
-    Args:
-        source_lat: source village latitude
-        source_lon: source village longitude
-        villages: list of village objects (must have id, latitude, longitude)
-        radius_km: maximum search radius
-        exclude_source_id: village ID to exclude from results
-
-    Returns:
-        List of (village_dict, distance_km) tuples, sorted by distance ascending.
-    """
+    """Villages within radius_km, sorted by distance."""
     candidates = []
 
     for v in villages:
-        # Skip source village
         if exclude_source_id and v.id == exclude_source_id:
             continue
 
@@ -69,18 +49,7 @@ def find_nearby_shelters(
     shelters: list,
     radius_km: float = 120.0,
 ) -> List[Tuple[dict, float]]:
-    """
-    Find shelters within radius_km of source coordinates.
-
-    Args:
-        source_lat: source village latitude
-        source_lon: source village longitude
-        shelters: list of shelter objects (must have id, latitude, longitude)
-        radius_km: maximum search radius
-
-    Returns:
-        List of (shelter_dict, distance_km) tuples, sorted by distance ascending.
-    """
+    """Shelters within radius_km, sorted by distance."""
     candidates = []
 
     for s in shelters:
@@ -102,16 +71,10 @@ def find_all_candidates(
     radius_km: float = 120.0,
     exclude_source_id: str = None,
 ) -> List[dict]:
-    """
-    Combined search: find all nearby villages + shelters.
-
-    Returns a unified list of candidate dicts with:
-      - id, name, type (village/shelter), latitude, longitude, distance_km
-      - Plus all original fields for scoring
-    """
+    """Combined search for nearby villages + shelters, sorted by distance."""
     candidates = []
 
-    # Nearby villages (as destination candidates)
+    # Villages
     for v, dist in find_nearby_villages(
         source_lat, source_lon, villages, radius_km, exclude_source_id
     ):
@@ -138,7 +101,7 @@ def find_all_candidates(
             "current_occupancy": 0,
         })
 
-    # Nearby shelters
+    # Shelters
     for s, dist in find_nearby_shelters(
         source_lat, source_lon, shelters, radius_km
     ):
@@ -164,6 +127,5 @@ def find_all_candidates(
             "current_occupancy": s.current_occupancy,
         })
 
-    # Sort all candidates by distance
     candidates.sort(key=lambda x: x["distance_km"])
     return candidates

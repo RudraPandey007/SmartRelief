@@ -12,9 +12,6 @@ from fastapi.responses import JSONResponse
 
 from app.config import Settings, get_settings
 
-# ---------------------------------------------------------------------------
-# Rate limiter (global singleton, wired into main.py later)
-# ---------------------------------------------------------------------------
 # NOTE: On Vercel serverless, in-memory rate limit counters and the
 # Gemini/weather TTL cache do NOT persist reliably across invocations —
 # each cold start may reset this state. Acceptable for a hackathon demo;
@@ -30,9 +27,6 @@ def _parse_rate(rate_str: str) -> int:
         return 30
 
 
-# ---------------------------------------------------------------------------
-# API Key dependency
-# ---------------------------------------------------------------------------
 _api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 
@@ -53,9 +47,6 @@ async def require_api_key(
     return api_key
 
 
-# ---------------------------------------------------------------------------
-# Custom rate-limit exceeded handler (returns 429 + Retry-After)
-# ---------------------------------------------------------------------------
 async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
     retry_after = getattr(exc, "retry_after", None) or 60
     return JSONResponse(

@@ -1,11 +1,4 @@
-"""
-Gemini Client — calls Google Gemini API for natural-language plan summaries.
-
-Features:
-  - TTL cache keyed by hash of plan output (avoids re-generating same summary)
-  - Hard call cap per minute (protects shared API key)
-  - Graceful degradation: returns None if API fails or is capped
-"""
+"""Gemini client — calls Google Gemini for natural-language plan summaries."""
 import hashlib
 import logging
 import time
@@ -17,11 +10,7 @@ from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Lazy-init state (initialized on first call, not at import time)
-# This prevents crashes during Vercel cold starts when env vars may not
-# be loaded yet at the module import stage.
-# ---------------------------------------------------------------------------
+# Lazy-init: avoids Vercel cold-start crashes from early env var access.
 _cache: Optional[TTLCache] = None
 _counter: Optional["GeminiCallCounter"] = None
 
@@ -61,35 +50,22 @@ def _plan_hash(plan_text: str) -> str:
 
 
 async def generate_plan_summary(plan_data: dict) -> Optional[str]:
-    """
-    Generate a natural-language summary of the evacuation plan using Gemini.
-
-    Args:
-        plan_data: dict with plan details (village name, scores, allocations, etc.)
-
-    Returns:
-        str: AI-generated summary, or None if unavailable
-    """
+    """Generate a Gemini summary of the plan. Returns None if unavailable."""
     settings = get_settings()
 
-    # Skip if no API configured
     if not settings.GEMINI_API_KEY or settings.GEMINI_API_KEY.startswith("REPLACE"):
         logger.info("Gemini API not configured, using rule-based summary")
         return None
 
-    # Build prompt
     prompt = _build_summary_prompt(plan_data)
 
-    # Get lazy-initialized cache and counter
     cache, counter = _get_lazy_state()
 
-    # Check cache
     cache_key = _plan_hash(prompt)
     if cache_key in cache:
         logger.debug(f"Cache hit for Gemini summary: {cache_key}")
         return cache[cache_key]
 
-    # Check call cap
     if not counter.can_call():
         logger.warning(f"Gemini API call cap reached ({counter.calls_in_last_minute()} calls/min)")
         return None
@@ -118,7 +94,6 @@ async def generate_plan_summary(plan_data: dict) -> Optional[str]:
             response.raise_for_status()
             data = response.json()
 
-            # Extract text from Gemini response
             summary = (
                 data.get("candidates", [{}])[0]
                 .get("content", {})
@@ -145,28 +120,20 @@ async def generate_plan_summary(plan_data: dict) -> Optional[str]:
 
 
 def generate_plan_summary_sync(plan_data: dict) -> Optional[str]:
-    """
-    Synchronous wrapper for Gemini summary generation.
-    Returns None if unavailable (graceful degradation).
-    """
+    """Sync version of generate_plan_summary."""
     settings = get_settings()
 
-    # Skip if no API configured
     if not settings.GEMINI_API_KEY or settings.GEMINI_API_KEY.startswith("REPLACE"):
         return None
 
-    # Build prompt
     prompt = _build_summary_prompt(plan_data)
 
-    # Get lazy-initialized cache and counter
     cache, counter = _get_lazy_state()
 
-    # Check cache
     cache_key = _plan_hash(prompt)
     if cache_key in cache:
         return cache[cache_key]
 
-    # Check call cap
     if not counter.can_call():
         logger.warning("Gemini API call cap reached")
         return None
