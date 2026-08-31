@@ -377,7 +377,7 @@ function Dashboard() {
           </div>
 
           {planLoading ? (
-            <div className="rec-loading"><Spinner size={28} label="Generating plan\u2026" /></div>
+            <div className="rec-loading"><Spinner size={28} label="Generating plan…" /></div>
           ) : topDest ? (
             <>
               <div className="rec-hero">
@@ -480,7 +480,7 @@ function Dashboard() {
         </div>
 
         {planLoading ? (
-          <div className="rec-loading"><Spinner size={28} label="Building allocation\u2026" /></div>
+          <div className="rec-loading"><Spinner size={28} label="Building allocation…" /></div>
         ) : activePlan ? (
           <>
             <div className="allocation">
@@ -494,7 +494,7 @@ function Dashboard() {
                 </div>
               </div>
 
-              <div className="arrow">\u2192</div>
+              <div className="arrow">→</div>
 
               {/* Dynamic allocation boxes */}
               {allocatedDests.map((d, i) => (
@@ -534,7 +534,7 @@ function Dashboard() {
             <div className="plan-bottom">
               <span>
                 <CheckCircle2 size={15} />
-                {totalEvaluated} candidates evaluated \u00B7 {totalRejected} rejected by hard safety constraints
+                {totalEvaluated} candidates evaluated · {totalRejected} rejected by hard safety constraints
               </span>
               <button className="link-btn">View Detailed Plan <ArrowUpRight size={14} /></button>
             </div>
@@ -557,7 +557,7 @@ function Dashboard() {
         </div>
         <div className="sliders">
           <label>
-            Rainfall Multiplier <b>{(0.1 + (sliders.rainfall_mm / 100) * 9.9).toFixed(1)}\u00D7</b>
+            Rainfall Multiplier <b>{(0.1 + (sliders.rainfall_mm / 100) * 9.9).toFixed(1)}×</b>
             <input
               type="range"
               min="1" max="100" step="1"
@@ -590,7 +590,7 @@ function Dashboard() {
           disabled={simLoading}
         >
           {simLoading ? (
-            <><Loader2 size={16} className="spin" /> Running\u2026</>
+            <><Loader2 size={16} className="spin" /> Running…</>
           ) : simulated ? (
             <><RefreshCw size={16} /> Reset Scenario</>
           ) : (
@@ -770,7 +770,7 @@ function App() {
             </button>
           ))}
         </nav>
-        <div className="sidebar-foot">Smart Relief v1.0 \u2022 SIH Prototype</div>
+        <div className="sidebar-foot">Smart Relief v1.0 • SIH Prototype</div>
       </aside>
 
       <main className="main">
