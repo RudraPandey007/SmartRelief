@@ -367,7 +367,7 @@ function Dashboard() {
             </div>
             <button className="filter-btn"><SlidersHorizontal size={15} /> Layers</button>
           </div>
-          <RiskMap plan={activePlan} />
+          <RiskMap plan={plan} />
         </section>
 
         <section className="card recommendation">

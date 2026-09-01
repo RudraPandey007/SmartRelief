@@ -147,8 +147,11 @@ export default function RiskMap({ plan }) {
     rejected: { label: "Rejected Destinations", visible: false },
   });
 
-  // Source village coordinates
-  const sourcePos = plan ? [plan.latitude, plan.longitude] : null;
+  // Source village coordinates — memoized so FlyTo doesn't fire on every re-render
+  const sourcePos = useMemo(
+    () => (plan ? [plan.latitude, plan.longitude] : null),
+    [plan?.latitude, plan?.longitude]
+  );
 
   // Map center: source village or default
   const center = sourcePos || [27.48, 94.58]; // Dhemaji fallback
